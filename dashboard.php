@@ -86,7 +86,7 @@ if (!isset($_SESSION['user'])) {
         const addFormElement = document.querySelector("#add-form");
         const alertElement = document.querySelector("#alert");
 
-        addFormElement.addEventListener("submit", function(e) {
+        addFormElement.addEventListener("submit", async function(e) {
             e.preventDefault();
 
             const taskInputElement = document.querySelector("#task-input");
@@ -105,45 +105,40 @@ if (!isset($_SESSION['user'])) {
                     submit: 1,
                 };
 
-                fetch("./api/add-task.php", {
-                        method: "POST",
-                        body: JSON.stringify(data),
-                        headers: {
-                            'Content-Type': 'application.json'
-                        }
-                    })
-                    .then(function(response) {
-                        return response.json();
-                    })
-                    .then(function(result) {
-                        if (result.bodyError) {
-                            taskInputElement.classList.add("is-invalid");
-                            alertElement.innerHTML = alert("danger", result.bodyError);
-                        } else if (result.success) {
-                            alertElement.innerHTML = alert("success", result.success);
-                            taskInputElement.value = "";
-                            showTasks();
-                        } else if (result.failure) {
-                            alertElement.innerHTML = alert("danger", result.failure);
-                        } else {
-                            alertElement.innerHTML = alert("danger", "Something went wrong!");
-                        }
-                    })
+                const response = await fetch("./api/add-task.php", {
+                    method: "POST",
+                    body: JSON.stringify(data),
+                    headers: {
+                        'Content-Type': 'application.json'
+                    }
+                })
+                const result = await response.json();
+
+                if (result.bodyError) {
+                    taskInputElement.classList.add("is-invalid");
+                    alertElement.innerHTML = alert("danger", result.bodyError);
+                } else if (result.success) {
+                    alertElement.innerHTML = alert("success", result.success);
+                    taskInputElement.value = "";
+                    showTasks();
+                } else if (result.failure) {
+                    alertElement.innerHTML = alert("danger", result.failure);
+                } else {
+                    alertElement.innerHTML = alert("danger", "Something went wrong!");
+                }
             }
         });
 
-        function showTasks() {
+        async function showTasks() {
             const tasksElement = document.querySelector("#tasks");
 
-            fetch("./api/show-tasks.php")
-                .then(function(response) {
-                    return response.json();
-                })
-                .then(function(result) {
-                    let tasksListElement = "";
-                    if (result.length !== 0) {
-                        result.forEach(function(task) {
-                            tasksListElement += `<div class="row mb-2">
+            const response = await fetch("./api/show-tasks.php")
+            const result = await response.json();
+
+            let tasksListElement = "";
+            if (result.length !== 0) {
+                result.forEach(function(task) {
+                    tasksListElement += `<div class="row mb-2">
                                             <div class="col-md">
                                                 <input type="text" class="form-control" id="task-${task.id}" value="${task.body}" placeholder="Please enter the task!" readonly>
                                             </div>
@@ -154,13 +149,87 @@ if (!isset($_SESSION['user'])) {
                                                 <button class="btn btn-danger" id="delete-${task.id}" onclick="deleteTask(${task.id})">Delete</button>
                                             </div>
                                         </div>`;
-                        });
+                });
 
-                        tasksElement.innerHTML = tasksListElement;
+                tasksElement.innerHTML = tasksListElement;
+            } else {
+                tasksElement.innerHTML = `<div class="alert alert-info m-0">No record found!</div>`;
+            }
+        }
+
+        async function editTask(id) {
+            const taskElement = document.querySelector("#task-" + id);
+            const editElement = document.querySelector("#edit-" + id);
+
+            let taskValue = taskElement.value;
+
+            if (editElement.innerText == "Edit") {
+                taskElement.removeAttribute("readonly");
+                taskElement.focus();
+                taskElement.setSelectionRange(taskValue.length, taskValue.length);
+                editElement.innerText = "Save";
+            } else {
+                if (taskValue == "") {
+                    taskElement.classList.add("is-invalid");
+                } else {
+                    taskElement.classList.remove("is-invalid");
+
+                    const data = {
+                        body: taskValue,
+                        id: id,
+                        submit: 1,
+                    };
+
+                    const response = await fetch("./api/edit-task.php", {
+                        method: "POST",
+                        body: JSON.stringify(data),
+                        headers: {
+                            'Content-Type': 'application.json'
+                        },
+                    })
+
+                    const result = await response.json()
+
+                    if (result.bodyError) {
+                        taskElement.classList.add("is-invalid");
+                        alertElement.innerHTML = alert("danger", result.bodyError);
+                    } else if (result.success) {
+                        alertElement.innerHTML = alert("success", result.success);
+                        editElement.innerText = "Edit";
+                        taskElement.setAttribute("readonly", true);
+                    } else if (result.failure) {
+                        alertElement.innerHTML = alert("danger", result.failure);
                     } else {
-                        tasksElement.innerHTML = `<div class="alert alert-info m-0">No record found!</div>`;
+                        alertElement.innerHTML = alert("danger", "Something went wrong!");
                     }
-                })
+                }
+            }
+        }
+
+        async function deleteTask(id) {
+            const data = {
+                id: id,
+                submit: 1,
+            };
+
+            const response = await fetch("./api/delete-task.php", {
+                method: "POST",
+                body: JSON.stringify(data),
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alertElement.innerHTML = alert("success", result.success);
+                showTasks();
+            } else if (result.failure) {
+                alertElement.innerHTML = alert("danger", result.failure);
+            } else {
+                alertElement.innerHTML = alert("danger", "Something went wrong!");
+            }
         }
 
         function alert(cls, msg) {
